@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.CheckBox?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.HBox?>
+
+
+<BorderPane fx:controller="com.example.VentanaPrincipalController" maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="600.0" prefWidth="800.0" xmlns="http://javafx.com/javafx/26" xmlns:fx="http://javafx.com/fxml/1">
+   <top>
+      <HBox fx:id="hBoxHeader" prefHeight="100.0" prefWidth="200.0" BorderPane.alignment="CENTER">
+         <children>
+            <Label fx:id="lblIp" text="IP:" />
+            <TextField fx:id="txtFieldIp" promptText="127.0.0.1" />
+            <Label fx:id="lblPuerto" text="Puerto: " />
+            <TextField fx:id="txtFieldPuerto" promptText="5000" />
+            <Label fx:id="lblUsuario" text="Usuario: " />
+            <TextField fx:id="txtFieldUsuario" promptText="Dixon" />
+            <Button fx:id="btnConectar" mnemonicParsing="false" text="Conectar" />
+            <Button fx:id="btnDesconectar" mnemonicParsing="false" text="Desconectar" />
+         </children>
+      </HBox>
+   </top>
+   <bottom>
+      <HBox fx:id="hBoxButton" prefHeight="100.0" prefWidth="200.0" BorderPane.alignment="CENTER">
+         <children>
+            <CheckBox fx:id="chckBoxPrivado" mnemonicParsing="false" text="Privado" />
+            <Label fx:id="lblPara" text="Para:" />
+            <TextField fx:id="txtFieldDestinatario" promptText="admin" />
+            <TextField fx:id="txtFieldMensaje" />
+            <Button fx:id="btnEnviar" mnemonicParsing="false" text="Enviar" />
+         </children>
+      </HBox>
+   </bottom>
+</BorderPane>
