@@ -9,7 +9,7 @@
 <?import javafx.scene.layout.HBox?>
 
 
-<BorderPane fx:controller="controller.VentanaPrincipalController_pruebas" maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="600.0" prefWidth="800.0" xmlns="http://javafx.com/javafx/13.0.0" xmlns:fx="http://javafx.com/fxml/1">
+<BorderPane fx:controller="client.controller.VentanaPrincipalController_pruebas" maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="600.0" prefWidth="800.0" xmlns="http://javafx.com/javafx/13.0.0" xmlns:fx="http://javafx.com/fxml/1">
    <top>
       <HBox fx:id="hBoxHeader" prefHeight="100.0" prefWidth="200.0" BorderPane.alignment="CENTER">
          <children>
