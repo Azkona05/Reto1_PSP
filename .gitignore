@@ -1,2 +1,44 @@
-/origenApp/target/
-/origen/target/
+# Compilados Java
+*.class
+*.jar
+*.war
+*.ear
+
+# Archivo de configuracion de la base de datos
+configFile.properties
+
+# NetBeans
+nbproject/private/
+nbproject/Makefile-*.mk
+nbproject/Package-*.bash
+build/
+dist/
+nbbuild/
+nbdist/
+.nb-gradle/
+nb-configuration.xml
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# Eclipse
+.project
+.classpath
+.settings/
+
+# VS Code
+.vscode/
+
+# Build output
+bin/
+out/
+target/
+
+# OS
+.DS_Store
+Thumbs.db
+doc/
