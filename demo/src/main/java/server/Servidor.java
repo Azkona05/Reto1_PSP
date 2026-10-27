@@ -5,7 +5,7 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.text.SimpleDateFormat;
 import java.util.*;
-import model.Mensaje;
+import server.model.Mensaje;
 
 public class Servidor {
 

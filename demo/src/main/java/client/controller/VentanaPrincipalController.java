@@ -1,7 +1,8 @@
-package controller;
+package client.controller;
 
 import java.io.IOException;
 
+import client.Cliente;
 import javafx.application.Platform;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
@@ -11,7 +12,7 @@ import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.HBox;
 
-import cliente.*;
+import client.*;
 
 public class VentanaPrincipalController {
 
