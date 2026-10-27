@@ -54,9 +54,7 @@ public class Servidor {
         }
     }
 
-    // =====================================================================
     //  LÍMITE DE CLIENTES
-    // =====================================================================
     private static boolean reservarPlaza() {
         synchronized (LOCK) {
             if (conexionesActivas >= MAX_USERS) {
@@ -85,9 +83,7 @@ public class Servidor {
         }
     }
 
-    // =====================================================================
     //  USUARIOS Y MENSAJES
-    // =====================================================================
     private static boolean registrar(String nombre, ManejadorCliente cliente) {
         synchronized (LOCK) {
             if (usuarios.containsKey(nombre)) {
@@ -142,9 +138,7 @@ public class Servidor {
         return new Mensaje(Mensaje.Tipo.SISTEMA, "SERVIDOR", null, texto);
     }
 
-    // =====================================================================
     //  LOG Y ESTADO
-    // =====================================================================
     private static void log(String tipo, String texto) {
         String hora = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date());
         String linea = "[" + hora + "] [" + tipo + "] " + texto;
@@ -191,9 +185,7 @@ public class Servidor {
         }
     }
 
-    // =====================================================================
     //  HILO DE CADA CLIENTE
-    // =====================================================================
     private static class ManejadorCliente implements Runnable {
         private final Socket socket;
         private ObjectOutputStream out;
