@@ -1,12 +1,36 @@
 package server;
 
-import java.io.*;
+import java.io.EOFException;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.text.SimpleDateFormat;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 import model.Mensaje;
 
+/**
+ * Servidor del chat multihilo.
+ * <p>
+ * Acepta conexiones en un bucle y crea un hilo ({@link ManejadorCliente}) por
+ * cada cliente. Limita el número de usuarios simultáneos, reenvía mensajes
+ * públicos y privados, guarda un historial y escribe un log en archivo. Además,
+ * un hilo de estado muestra estadísticas periódicamente.
+ * <p>
+ * Todo el estado compartido es {@code static} y se protege con
+ * {@code synchronized (LOCK)}.
+ *
+ * @author Hodei Torres
+ * @version 1.0
+ */
 public class Servidor {
 
     // ---------- Configuración ----------
@@ -29,6 +53,12 @@ public class Servidor {
 
     private static final long INICIO = System.currentTimeMillis();
 
+    /**
+     * Arranca el servidor: abre el log, inicia el hilo de estado y acepta
+     * clientes indefinidamente, creando un hilo para cada uno.
+     *
+     * @param args argumentos de la línea de comandos (no se usan)
+     */
     public static void main(String[] args) {
         try {
             logArchivo = new PrintWriter(new FileWriter(ARCHIVO_LOG, true), true);
@@ -57,6 +87,12 @@ public class Servidor {
     // =====================================================================
     //  LÍMITE DE CLIENTES
     // =====================================================================
+    /**
+     * Intenta reservar una plaza para un nuevo cliente.
+     *
+     * @return {@code true} si había plaza, {@code false} si el servidor está
+     * lleno
+     */
     private static boolean reservarPlaza() {
         synchronized (LOCK) {
             if (conexionesActivas >= MAX_USERS) {
@@ -67,12 +103,20 @@ public class Servidor {
         }
     }
 
+    /**
+     * Libera la plaza de un cliente que se ha desconectado.
+     */
     private static void liberarPlaza() {
         synchronized (LOCK) {
             conexionesActivas--;
         }
     }
 
+    /**
+     * Avisa a un cliente de que el servidor está lleno y cierra su conexión.
+     *
+     * @param socket socket del cliente rechazado
+     */
     private static void rechazar(Socket socket) {
         log("RECHAZADO", "Conexión desde " + socket.getInetAddress() + " (servidor lleno)");
         try {
@@ -88,6 +132,14 @@ public class Servidor {
     // =====================================================================
     //  USUARIOS Y MENSAJES
     // =====================================================================
+    /**
+     * Registra un usuario con su nombre si no está ya en uso.
+     *
+     * @param nombre nombre del usuario
+     * @param cliente manejador asociado a ese usuario
+     * @return {@code true} si se registró, {@code false} si el nombre ya
+     * existía
+     */
     private static boolean registrar(String nombre, ManejadorCliente cliente) {
         synchronized (LOCK) {
             if (usuarios.containsKey(nombre)) {
@@ -98,30 +150,55 @@ public class Servidor {
         }
     }
 
+    /**
+     * Elimina un usuario de la lista de conectados.
+     *
+     * @param nombre nombre del usuario
+     */
     private static void eliminar(String nombre) {
         synchronized (LOCK) {
             usuarios.remove(nombre);
         }
     }
 
+    /**
+     * Busca el manejador de un usuario conectado.
+     *
+     * @param nombre nombre del usuario
+     * @return su manejador, o {@code null} si no está conectado
+     */
     private static ManejadorCliente buscar(String nombre) {
         synchronized (LOCK) {
             return usuarios.get(nombre);
         }
     }
 
+    /**
+     * Devuelve una copia de la lista de clientes para poder recorrerla fuera
+     * del bloqueo.
+     *
+     * @return copia de los manejadores conectados
+     */
     private static List<ManejadorCliente> copiaClientes() {
         synchronized (LOCK) {
             return new ArrayList<>(usuarios.values());
         }
     }
 
+    /**
+     * @return texto con el número y los nombres de los usuarios conectados
+     */
     private static String listaUsuarios() {
         synchronized (LOCK) {
             return "Conectados (" + usuarios.size() + "): " + String.join(", ", usuarios.keySet());
         }
     }
 
+    /**
+     * Guarda un mensaje en el historial y lo marca como último mensaje.
+     *
+     * @param m mensaje a guardar
+     */
     private static void guardarMensaje(Mensaje m) {
         synchronized (LOCK) {
             historial.add(m);
@@ -129,7 +206,13 @@ public class Servidor {
         }
     }
 
-    /** Se envía fuera del lock, sobre una copia, para que un cliente lento no bloquee a los demás. */
+    /**
+     * Envía un mensaje a todos los clientes excepto a uno. Se envía fuera del
+     * lock, sobre una copia, para que un cliente lento no bloquee a los demás.
+     *
+     * @param m mensaje a difundir
+     * @param excluir cliente que no debe recibirlo (normalmente el emisor)
+     */
     private static void difundir(Mensaje m, ManejadorCliente excluir) {
         for (ManejadorCliente c : copiaClientes()) {
             if (c != excluir) {
@@ -138,6 +221,12 @@ public class Servidor {
         }
     }
 
+    /**
+     * Crea un mensaje de tipo SISTEMA enviado por el servidor.
+     *
+     * @param texto contenido del aviso
+     * @return mensaje de sistema
+     */
     private static Mensaje sistema(String texto) {
         return new Mensaje(Mensaje.Tipo.SISTEMA, "SERVIDOR", null, texto);
     }
@@ -145,6 +234,12 @@ public class Servidor {
     // =====================================================================
     //  LOG Y ESTADO
     // =====================================================================
+    /**
+     * Escribe una línea con fecha y tipo en la consola y en el archivo de log.
+     *
+     * @param tipo categoría del evento (ENTRADA, SALIDA, ERROR...)
+     * @param texto descripción del evento
+     */
     private static void log(String tipo, String texto) {
         String hora = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date());
         String linea = "[" + hora + "] [" + tipo + "] " + texto;
@@ -156,6 +251,10 @@ public class Servidor {
         }
     }
 
+    /**
+     * Arranca un hilo daemon que cada cierto tiempo muestra los usuarios
+     * conectados, el tiempo activo, el total de mensajes y el último mensaje.
+     */
     private static void iniciarHiloEstado() {
         Thread estado = new Thread(() -> {
             while (true) {
@@ -184,6 +283,11 @@ public class Servidor {
         estado.start();
     }
 
+    /**
+     * Cierra un socket ignorando posibles errores.
+     *
+     * @param socket socket a cerrar
+     */
     private static void cerrar(Socket socket) {
         try {
             socket.close();
@@ -194,17 +298,44 @@ public class Servidor {
     // =====================================================================
     //  HILO DE CADA CLIENTE
     // =====================================================================
+    /**
+     * Hilo que atiende a un único cliente: lo identifica, recibe sus mensajes y
+     * los procesa hasta que se desconecta.
+     */
     private static class ManejadorCliente implements Runnable {
+
+        /**
+         * Socket del cliente.
+         */
         private final Socket socket;
+        /**
+         * Flujo para enviar mensajes al cliente.
+         */
         private ObjectOutputStream out;
+        /**
+         * Flujo para recibir mensajes del cliente.
+         */
         private ObjectInputStream in;
+        /**
+         * Nombre del usuario, o {@code null} hasta que se identifica.
+         */
         private String nombre = null;
 
+        /**
+         * Crea el manejador para un cliente.
+         *
+         * @param socket socket del cliente
+         */
         ManejadorCliente(Socket socket) {
             this.socket = socket;
         }
 
-        /** ObjectOutputStream no es thread-safe: varios hilos le escriben, así que se sincroniza. */
+        /**
+         * Envía un mensaje a este cliente. ObjectOutputStream no es
+         * thread-safe: varios hilos le escriben, así que se sincroniza.
+         *
+         * @param m mensaje a enviar
+         */
         synchronized void enviar(Mensaje m) {
             if (out == null) {
                 return;
@@ -219,6 +350,10 @@ public class Servidor {
             }
         }
 
+        /**
+         * Crea los flujos, identifica al usuario y procesa sus mensajes hasta
+         * que se desconecta. Al terminar, lo elimina y libera su plaza.
+         */
         @Override
         public void run() {
             try {
@@ -257,7 +392,14 @@ public class Servidor {
             }
         }
 
-        /** El primer mensaje del cliente debe ser un LOGIN con el nombre en 'emisor'. */
+        /**
+         * El primer mensaje del cliente debe ser un LOGIN con el nombre en
+         * 'emisor'. Repite hasta recibir un nombre válido y libre.
+         *
+         * @return {@code true} cuando el usuario queda registrado
+         * @throws IOException si falla la comunicación
+         * @throws ClassNotFoundException si llega un objeto desconocido
+         */
         private boolean identificar() throws IOException, ClassNotFoundException {
             while (true) {
                 Mensaje m = (Mensaje) in.readObject();
@@ -277,7 +419,14 @@ public class Servidor {
             }
         }
 
-        /** Devuelve false cuando el cliente quiere salir. */
+        /**
+         * Procesa un mensaje del cliente según su tipo. Devuelve false cuando
+         * el cliente quiere salir.
+         *
+         * @param m mensaje recibido
+         * @return {@code false} si el cliente quiere salir, {@code true} en
+         * otro caso
+         */
         private boolean procesar(Mensaje m) {
             switch (m.getTipo()) {
                 case PUBLICO:
