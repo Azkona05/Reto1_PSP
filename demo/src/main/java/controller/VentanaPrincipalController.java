@@ -1,5 +1,8 @@
 package controller;
 
+import java.io.IOException;
+
+import javafx.application.Platform;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.scene.control.Button;
@@ -7,6 +10,8 @@ import javafx.scene.control.CheckBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.HBox;
+
+import cliente.*;
 
 public class VentanaPrincipalController {
 
@@ -55,15 +60,47 @@ public class VentanaPrincipalController {
     @FXML
     private Button btnEnviar;
 
+    private Cliente cliente;
+
     @FXML
-    void initialize() {
-        // Código que se ejecuta automáticamente al cargar la interfaz
+    public void initialize() {
+
     }
 
-    // Ejemplo de método para asignar a un botón (ej: On Action="#handleConectar")
     @FXML
-    void handleConectar(ActionEvent event) {
-        String ip = txtFieldIp.getText();
-        System.out.println("Conectando a: " + ip);
+    void conectarAlServidor(ActionEvent event) {
+        String ip = txtFieldIp.getText().trim();
+        String strPuerto = txtFieldPuerto.getText().trim();
+        String usuario = txtFieldUsuario.getText().trim();
+
+        if (ip.isEmpty() || strPuerto.isEmpty() || usuario.isEmpty()) {
+            System.err.println("Por favor complete todos los campos.");
+            return;
+        }
+
+        int puerto;
+        try {
+            puerto = Integer.parseInt(strPuerto);
+        } catch (NumberFormatException e) {
+            System.err.println("El puerto debe ser un número válido.");
+            return;
+        }
+
+        new Thread(() -> {
+            try {
+                cliente.conectar(ip, puerto, usuario);
+                System.out.println("Conexión establecida exitosamente como: " + usuario);
+            } catch (IOException e) {
+                System.err.println("Error al conectar: " + e.getMessage());
+            }
+        }).start();
+    }
+
+    @FXML
+    void desconectar(ActionEvent event) {
+        new Thread(() -> {
+                cliente.desconectar();
+                System.out.println("Cliente desconectado");
+        }).start();
     }
 }

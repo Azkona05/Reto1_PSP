@@ -19,8 +19,8 @@
             <TextField fx:id="txtFieldPuerto" promptText="5000" />
             <Label fx:id="lblUsuario" text="Usuario: " />
             <TextField fx:id="txtFieldUsuario" promptText="Dixon" />
-            <Button fx:id="btnConectar" mnemonicParsing="false" text="Conectar" />
-            <Button fx:id="btnDesconectar" mnemonicParsing="false" text="Desconectar" />
+            <Button fx:id="btnConectar" mnemonicParsing="false" onAction="#conectarAlServidor" text="Conectar" />
+            <Button fx:id="btnDesconectar" mnemonicParsing="false" onAction="#desconectar" text="Desconectar" />
             <Label fx:id="mensajeConectado">
                <font>
                   <Font name="System Bold" size="12.0" />
