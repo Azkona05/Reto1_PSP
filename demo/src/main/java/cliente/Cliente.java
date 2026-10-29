@@ -174,7 +174,7 @@ public class Cliente {
             out.flush();
             out.reset();
         } catch (IOException e) {
-            cerrarRecursos(); // el hilo de lectura detectará el cierre
+            cerrarRecursos(); 
         }
     }
 

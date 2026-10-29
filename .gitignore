@@ -1,3 +1,4 @@
+*.log
 # Compilados Java
 *.class
 *.jar
