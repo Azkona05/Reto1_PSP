@@ -1,19 +1,19 @@
-package cliente;
+package client.model;
 
 import java.io.IOException;
 import java.io.ObjectInputStream;
 
-import model.Mensaje;
+import server.model.Mensaje;
 
 /**
- * Hilo del cliente que conecta con el servidor y después escucha
- * continuamente los mensajes que envía.
+ * Hilo del cliente que conecta con el servidor y después escucha continuamente
+ * los mensajes que envía.
  * <p>
  * Funciona en dos fases:
  * <ol>
  * <li><b>Conexión:</b> abre el socket y envía el LOGIN. Puede tardar si el
- * servidor no responde, por eso se hace en este hilo y no en el de JavaFX.
- * Al terminar avisa de si se ha conectado o no.</li>
+ * servidor no responde, por eso se hace en este hilo y no en el de JavaFX. Al
+ * terminar avisa de si se ha conectado o no.</li>
  * <li><b>Lectura:</b> se queda bloqueado en
  * {@link ObjectInputStream#readObject()} hasta que llega un {@link Mensaje} y
  * se lo pasa al {@link Cliente}. Cuando el socket se cierra (por el usuario o
@@ -25,21 +25,29 @@ import model.Mensaje;
  */
 public class HiloLectura extends Thread {
 
-    /** Cliente que gestiona la conexión y al que se notifican los eventos. */
+    /**
+     * Cliente que gestiona la conexión y al que se notifican los eventos.
+     */
     private final Cliente cliente;
-    /** Dirección IP o nombre del servidor. */
+    /**
+     * Dirección IP o nombre del servidor.
+     */
     private final String host;
-    /** Puerto en el que escucha el servidor. */
+    /**
+     * Puerto en el que escucha el servidor.
+     */
     private final int puerto;
-    /** Nombre de usuario con el que identificarse. */
+    /**
+     * Nombre de usuario con el que identificarse.
+     */
     private final String usuario;
 
     /**
      * Crea el hilo.
      *
      * @param cliente cliente que gestiona la conexión
-     * @param host    dirección IP o nombre del servidor
-     * @param puerto  puerto del servidor
+     * @param host dirección IP o nombre del servidor
+     * @param puerto puerto del servidor
      * @param usuario nombre de usuario
      */
     public HiloLectura(Cliente cliente, String host, int puerto, String usuario) {

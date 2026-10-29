@@ -32,7 +32,9 @@ out/
 .settings/
 
 # VS Code
-.vscode/
+.vscode/*
+!.vscode/
+!.vscode/settings.json
 
 # Build output
 bin/
@@ -43,3 +45,6 @@ target/
 .DS_Store
 Thumbs.db
 doc/
+
+# Logs generated when running the server
+/servidor.log

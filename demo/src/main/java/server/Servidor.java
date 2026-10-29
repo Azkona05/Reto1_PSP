@@ -15,7 +15,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import model.Mensaje;
+import server.model.Mensaje;
 
 /**
  * Servidor del chat multihilo.
@@ -84,7 +84,6 @@ public class Servidor {
         }
     }
 
-    // =====================================================================
     //  LÍMITE DE CLIENTES
     // =====================================================================
     /**
@@ -129,7 +128,6 @@ public class Servidor {
         }
     }
 
-    // =====================================================================
     //  USUARIOS Y MENSAJES
     // =====================================================================
     /**
@@ -231,7 +229,6 @@ public class Servidor {
         return new Mensaje(Mensaje.Tipo.SISTEMA, "SERVIDOR", null, texto);
     }
 
-    // =====================================================================
     //  LOG Y ESTADO
     // =====================================================================
     /**
@@ -295,7 +292,6 @@ public class Servidor {
         }
     }
 
-    // =====================================================================
     //  HILO DE CADA CLIENTE
     // =====================================================================
     /**

@@ -1,11 +1,11 @@
-package cliente;
+package client.model;
 
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
 
-import model.Mensaje;
+import server.model.Mensaje;
 
 /**
  * Cliente del chat. Gestiona la conexión con el servidor mediante un

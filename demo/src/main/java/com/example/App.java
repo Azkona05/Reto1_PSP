@@ -2,7 +2,7 @@ package com.example;
 
 import java.io.IOException;
 
-import controller.VentanaPrincipalController;
+import client.controller.*;
 import javafx.application.Application;
 import javafx.event.EventHandler;
 import javafx.fxml.FXMLLoader;

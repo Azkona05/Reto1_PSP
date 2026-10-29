@@ -1,7 +1,6 @@
-package controller;
+package client.controller;
 
-import cliente.Cliente;
-import cliente.ClienteListener;
+import client.model.*;
 import javafx.application.Platform;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
@@ -11,7 +10,7 @@ import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
-import model.Mensaje;
+import server.model.Mensaje;
 
 /**
  * Controlador de la ventana principal del chat.
