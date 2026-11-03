@@ -3,7 +3,11 @@ package client.model;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.net.InetSocketAddress;
 import java.net.Socket;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
 
 import server.model.Mensaje;
 
@@ -11,10 +15,10 @@ import server.model.Mensaje;
  * Cliente del chat. Gestiona la conexión con el servidor mediante un
  * {@link Socket} y el intercambio de objetos {@link Mensaje}.
  * <p>
- * El envío de mensajes se hace desde el hilo que llama a los métodos públicos
- * (normalmente el hilo de JavaFX), mientras que la recepción se realiza en un
- * hilo independiente ({@link HiloLectura}). Los mensajes recibidos se notifican
- * a un {@link ClienteListener}.
+ * El envío y la recepción se realizan en hilos independientes: el envío pasa
+ * por un único ejecutor para mantener el orden y la recepción se realiza en
+ * {@link HiloLectura}. Los mensajes recibidos se notifican a un
+ * {@link ClienteListener}.
  * <p>
  * El acceso al estado compartido ({@code conectado} y el flujo de salida) se
  * protege con {@code synchronized}, ya que lo usan varios hilos a la vez.
@@ -41,10 +45,18 @@ public class Cliente {
      */
     private HiloLectura hiloLectura;
     /**
+     * Hilo único para serializar los envíos sin bloquear la interfaz JavaFX.
+     */
+    private ExecutorService hiloEscritura;
+    /**
      * Indica si el cliente está conectado. Solo se accede dentro de bloques
      * synchronized.
      */
     private boolean conectado = false;
+    /**
+     * Indica que la conexión está en curso, antes de la aceptación del servidor.
+     */
+    private boolean conectando = false;
     /**
      * Nombre de usuario con el que se ha conectado el cliente.
      */
@@ -96,8 +108,12 @@ public class Cliente {
      * @param puerto puerto en el que escucha el servidor
      * @param usuario nombre de usuario con el que identificarse
      */
-    public void conectar(String host, int puerto, String usuario) {
+    public synchronized void conectar(String host, int puerto, String usuario) {
+        if (conectando || conectado) {
+            return;
+        }
         this.usuario = usuario;
+        conectando = true;
         hiloLectura = new HiloLectura(this, host, puerto, usuario);
         hiloLectura.start();
     }
@@ -117,17 +133,49 @@ public class Cliente {
      * @throws IOException si no se puede establecer la conexión
      */
     ObjectInputStream abrirConexion(String host, int puerto, String usuario) throws IOException {
-        socket = new Socket(host, puerto);
-        out = new ObjectOutputStream(socket.getOutputStream());
-        out.flush();
-        in = new ObjectInputStream(socket.getInputStream());
+        Socket nuevaSocket = new Socket();
+        synchronized (this) {
+            if (!conectando) {
+                nuevaSocket.close();
+                throw new IOException("Conexión cancelada.");
+            }
+            socket = nuevaSocket;
+        }
+        nuevaSocket.connect(new InetSocketAddress(host, puerto));
+        ObjectOutputStream nuevoOut = new ObjectOutputStream(nuevaSocket.getOutputStream());
+        nuevoOut.flush();
+        ObjectInputStream nuevoIn = new ObjectInputStream(nuevaSocket.getInputStream());
 
         synchronized (this) {
-            conectado = true;
+            if (!conectando) {
+                nuevaSocket.close();
+                throw new IOException("Conexión cancelada.");
+            }
+            out = nuevoOut;
+            in = nuevoIn;
+            hiloEscritura = Executors.newSingleThreadExecutor(r -> {
+                Thread hilo = new Thread(r, "hilo-escritura-cliente");
+                hilo.setDaemon(true);
+                return hilo;
+            });
+            hiloEscritura.execute(() -> escribir(new Mensaje(Mensaje.Tipo.LOGIN, usuario, null, null)));
         }
+        return nuevoIn;
+    }
 
-        enviar(new Mensaje(Mensaje.Tipo.LOGIN, usuario, null, null));
-        return in;
+    /**
+     * Marca la conexión como activa únicamente después de la confirmación del
+     * servidor.
+     *
+     * @return {@code true} si la conexión sigue pendiente y pudo confirmarse
+     */
+    synchronized boolean confirmarConexion() {
+        if (!conectando) {
+            return false;
+        }
+        conectando = false;
+        conectado = true;
+        return true;
     }
 
     /**
@@ -157,24 +205,45 @@ public class Cliente {
     }
 
     /**
-     * Envía un mensaje al servidor.
-     * <p>
-     * Es {@code synchronized} porque {@link ObjectOutputStream} no es
-     * thread-safe y varios hilos podrían escribir a la vez. Si falla el envío
-     * se cierran los recursos y el hilo de lectura detectará el cierre.
+     * Encola un mensaje para que lo escriba el hilo dedicado. El ejecutor
+     * serializa las escrituras porque {@link ObjectOutputStream} no es
+     * thread-safe; si falla un envío, se cierran los recursos y el hilo de
+     * lectura detectará el cierre.
      *
      * @param m mensaje a enviar
      */
-    private synchronized void enviar(Mensaje m) {
-        if (!conectado || out == null) {
-            return;
+    private void enviar(Mensaje m) {
+        synchronized (this) {
+            if (!conectado || hiloEscritura == null) {
+                return;
+            }
+            try {
+                hiloEscritura.execute(() -> escribir(m));
+            } catch (RejectedExecutionException e) {
+                cerrarRecursos();
+            }
         }
+    }
+
+    /**
+     * Escribe un mensaje desde el hilo dedicado al envío.
+     *
+     * @param m mensaje que se enviará
+     */
+    private void escribir(Mensaje m) {
         try {
-            out.writeObject(m);
-            out.flush();
-            out.reset();
+            ObjectOutputStream flujo;
+            synchronized (this) {
+                flujo = out;
+            }
+            if (flujo == null) {
+                return;
+            }
+            flujo.writeObject(m);
+            flujo.flush();
+            flujo.reset();
         } catch (IOException e) {
-            cerrarRecursos(); 
+            cerrarRecursos();
         }
     }
 
@@ -183,11 +252,26 @@ public class Cliente {
      * el socket y los flujos.
      */
     public void desconectar() {
-        if (!isConectado()) {
-            return;
+        synchronized (this) {
+            if (conectando) {
+                cerrarRecursos();
+                return;
+            }
+            if (!conectado) {
+                return;
+            }
+            conectado = false;
+            ExecutorService escritor = hiloEscritura;
+            try {
+                escritor.execute(() -> {
+                    escribir(new Mensaje(Mensaje.Tipo.SALIR, usuario, null, null));
+                    cerrarRecursos();
+                });
+                escritor.shutdown();
+            } catch (RejectedExecutionException e) {
+                cerrarRecursos();
+            }
         }
-        enviar(new Mensaje(Mensaje.Tipo.SALIR, usuario, null, null));
-        cerrarRecursos();
     }
 
     // ---- Llamados desde HiloLectura ----
@@ -208,9 +292,13 @@ public class Cliente {
      * @param mensajeError descripción del error
      */
     void notificarErrorConexion(String mensajeError) {
-        if (listener != null) {
+        if (listener != null && isConectando()) {
             listener.errorConexion(mensajeError);
         }
+    }
+
+    private synchronized boolean isConectando() {
+        return conectando;
     }
 
     /**
@@ -245,6 +333,11 @@ public class Cliente {
      */
     private synchronized void cerrarRecursos() {
         conectado = false;
+        conectando = false;
+        if (hiloEscritura != null) {
+            hiloEscritura.shutdownNow();
+            hiloEscritura = null;
+        }
         try {
             if (out != null) {
                 out.close();

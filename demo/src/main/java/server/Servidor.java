@@ -77,15 +77,30 @@ public class Servidor {
                     rechazar(socketCliente);
                     continue;
                 }
-                new Thread(new ManejadorCliente(socketCliente)).start();   // un hilo por cliente
+                new Thread(new ManejadorCliente(socketCliente)).start(); // un hilo por cliente
+                
+                //cerrar(socketCliente);
             }
         } catch (IOException e) {
             log("ERROR", "Fallo en el servidor: " + e.getMessage());
+        } finally {
+            cerrarLog();
+        }
+    }
+
+    /**
+     * Cierra el archivo de log al terminar el bucle principal del servidor.
+     */
+    private static void cerrarLog() {
+        synchronized (LOCK_LOG) {
+            if (logArchivo != null) {
+                logArchivo.close();
+                logArchivo = null;
+            }
         }
     }
 
     //  LÍMITE DE CLIENTES
-    // =====================================================================
     /**
      * Intenta reservar una plaza para un nuevo cliente.
      *
@@ -120,7 +135,7 @@ public class Servidor {
         log("RECHAZADO", "Conexión desde " + socket.getInetAddress() + " (servidor lleno)");
         try {
             ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream());
-            out.writeObject(new Mensaje(Mensaje.Tipo.SISTEMA, "SERVIDOR", null, "Servidor lleno. Inténtalo más tarde."));
+            out.writeObject(new Mensaje(Mensaje.Tipo.LOGIN_ERROR, "SERVIDOR", null, "Servidor lleno. Inténtalo más tarde."));
             out.flush();
         } catch (IOException ignorada) {
         } finally {
@@ -129,7 +144,6 @@ public class Servidor {
     }
 
     //  USUARIOS Y MENSAJES
-    // =====================================================================
     /**
      * Registra un usuario con su nombre si no está ya en uso.
      *
@@ -230,7 +244,6 @@ public class Servidor {
     }
 
     //  LOG Y ESTADO
-    // =====================================================================
     /**
      * Escribe una línea con fecha y tipo en la consola y en el archivo de log.
      *
@@ -293,7 +306,6 @@ public class Servidor {
     }
 
     //  HILO DE CADA CLIENTE
-    // =====================================================================
     /**
      * Hilo que atiende a un único cliente: lo identifica, recibe sus mensajes y
      * los procesa hasta que se desconecta.
@@ -390,29 +402,35 @@ public class Servidor {
 
         /**
          * El primer mensaje del cliente debe ser un LOGIN con el nombre en
-         * 'emisor'. Repite hasta recibir un nombre válido y libre.
+         * 'emisor'. Si no es válido o ya está en uso, lo rechaza y cierra la
+         * conexión para liberar la plaza reservada.
          *
          * @return {@code true} cuando el usuario queda registrado
          * @throws IOException si falla la comunicación
          * @throws ClassNotFoundException si llega un objeto desconocido
          */
         private boolean identificar() throws IOException, ClassNotFoundException {
-            while (true) {
-                Mensaje m = (Mensaje) in.readObject();
-                if (m.getTipo() != Mensaje.Tipo.LOGIN) {
-                    enviar(sistema("Debes identificarte primero (LOGIN)."));
-                    continue;
-                }
-                String n = m.getEmisor() == null ? "" : m.getEmisor().trim();
-                if (n.isEmpty() || n.contains(" ")) {
-                    enviar(sistema("Nombre no válido (sin espacios). Prueba otro."));
-                } else if (!registrar(n, this)) {
-                    enviar(sistema("El nombre '" + n + "' ya está en uso. Prueba otro."));
-                } else {
-                    nombre = n;
-                    return true;
-                }
+            Mensaje m = (Mensaje) in.readObject();
+            if (m.getTipo() != Mensaje.Tipo.LOGIN) {
+                enviar(new Mensaje(Mensaje.Tipo.LOGIN_ERROR, "SERVIDOR", null,
+                        "Debes identificarte primero (LOGIN)."));
+                return false;
             }
+            String n = m.getEmisor() == null ? "" : m.getEmisor().trim();
+            if (n.isEmpty() || n.contains(" ")) {
+                enviar(new Mensaje(Mensaje.Tipo.LOGIN_ERROR, "SERVIDOR", null,
+                        "Nombre no válido (sin espacios). Prueba otro."));
+                return false;
+            }
+            if (!registrar(n, this)) {
+                enviar(new Mensaje(Mensaje.Tipo.LOGIN_ERROR, "SERVIDOR", null,
+                        "El nombre '" + n + "' ya está en uso. Prueba otro."));
+                log("RECHAZADO", "Nombre de usuario ya en uso: " + n);
+                return false;
+            }
+            nombre = n;
+            enviar(new Mensaje(Mensaje.Tipo.LOGIN_OK, "SERVIDOR", null, null));
+            return true;
         }
 
         /**

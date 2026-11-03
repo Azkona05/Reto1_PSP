@@ -25,6 +25,14 @@ public class Mensaje implements Serializable {
          */
         LOGIN,
         /**
+         * Confirmación del servidor de que la identificación se ha completado.
+         */
+        LOGIN_OK,
+        /**
+         * Rechazo del servidor al intentar identificarse.
+         */
+        LOGIN_ERROR,
+        /**
          * Mensaje para todos los usuarios conectados.
          */
         PUBLICO,

@@ -10,11 +10,26 @@ JavaFX se descarga y configura mediante Maven; no es necesario instalarlo por se
 
 ## Compilar y ejecutar
 
-Desde la carpeta `demo`:
+Abre dos terminales en la carpeta `demo`. Primero compila el proyecto:
 
 ```powershell
-mvn clean javafx:run
+mvn clean compile
 ```
+
+En la primera terminal, arranca el servidor:
+
+```powershell
+java -cp target/classes server.Servidor
+```
+
+En la segunda terminal, arranca el cliente JavaFX:
+
+```powershell
+mvn javafx:run
+```
+
+El servidor escucha en el puerto `5005`. Ejecuta el servidor antes de conectar
+clientes; para iniciar otra instancia, usa otra terminal y el mismo comando.
 
 En VS Code, abre la carpeta del repositorio y acepta la importación del proyecto Maven. Si los imports de JavaFX aparecen como no resueltos, ejecuta **Java: Clean Java Language Server Workspace** y vuelve a abrir el proyecto.
 

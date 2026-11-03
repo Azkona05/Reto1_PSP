@@ -11,9 +11,9 @@ import server.model.Mensaje;
  * <p>
  * Funciona en dos fases:
  * <ol>
- * <li><b>Conexión:</b> abre el socket y envía el LOGIN. Puede tardar si el
- * servidor no responde, por eso se hace en este hilo y no en el de JavaFX. Al
- * terminar avisa de si se ha conectado o no.</li>
+ * <li><b>Conexión:</b> abre el socket, envía el LOGIN en el hilo de escritura
+ * y espera la confirmación del servidor. Puede tardar si el servidor no
+ * responde, por eso se hace en este hilo y no en el de JavaFX.</li>
  * <li><b>Lectura:</b> se queda bloqueado en
  * {@link ObjectInputStream#readObject()} hasta que llega un {@link Mensaje} y
  * se lo pasa al {@link Cliente}. Cuando el socket se cierra (por el usuario o
@@ -74,16 +74,27 @@ public class HiloLectura extends Thread {
             cliente.lecturaTerminada(); // cierra lo que se haya llegado a abrir
             return;
         }
-        cliente.notificarConexion(usuario);
-
-        // ---- Fase 2: lectura ----
         try {
+            Mensaje respuesta = (Mensaje) in.readObject();
+            if (respuesta.getTipo() == Mensaje.Tipo.LOGIN_ERROR) {
+                cliente.notificarErrorConexion(respuesta.getTexto());
+                return;
+            }
+            if (respuesta.getTipo() != Mensaje.Tipo.LOGIN_OK || !cliente.confirmarConexion()) {
+                cliente.notificarErrorConexion("Respuesta inesperada del servidor al identificarse.");
+                return;
+            }
+            cliente.notificarConexion(usuario);
+
+            // ---- Fase 2: lectura ----
             while (true) {
                 Mensaje m = (Mensaje) in.readObject(); // se bloquea hasta que llega algo
                 cliente.notificarMensaje(m);
             }
         } catch (IOException | ClassNotFoundException e) {
-            // socket cerrado (por nosotros o por el servidor)
+            if (!cliente.isConectado()) {
+                cliente.notificarErrorConexion(e.getMessage());
+            }
         } finally {
             cliente.lecturaTerminada();
         }

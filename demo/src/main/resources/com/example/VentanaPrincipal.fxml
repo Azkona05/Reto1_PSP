@@ -17,7 +17,7 @@
             <Label fx:id="lblIp" text="IP:" />
             <TextField fx:id="txtFieldIp" promptText="127.0.0.1" />
             <Label fx:id="lblPuerto" text="Puerto: " />
-            <TextField fx:id="txtFieldPuerto" promptText="5000" />
+            <TextField fx:id="txtFieldPuerto" promptText="5005" />
             <Label fx:id="lblUsuario" text="Usuario: " />
             <TextField fx:id="txtFieldUsuario" promptText="Dixon" />
             <Button fx:id="btnConectar" mnemonicParsing="false" onAction="#conectarAlServidor" text="Conectar" />
