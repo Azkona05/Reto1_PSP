@@ -23,43 +23,94 @@ import server.model.Mensaje;
  * cambios en la interfaz que vienen de otros hilos se pasan al hilo de JavaFX
  * con {@link Platform#runLater(Runnable)}.
  *
- * @author An Azkona
+ * @author Joel Mamani
  * @version 1.0
  */
 public class VentanaPrincipalController implements ClienteListener {
 
+    /**
+     * Cabecera con los campos de conexión.
+     */
     @FXML
     private HBox hBoxHeader;
+    /**
+     * Etiqueta del campo IP.
+     */
     @FXML
     private Label lblIp;
+    /**
+     * Campo para la dirección IP o nombre del servidor.
+     */
     @FXML
     private TextField txtFieldIp;
+    /**
+     * Etiqueta del campo puerto.
+     */
     @FXML
     private Label lblPuerto;
+    /**
+     * Campo para el puerto del servidor.
+     */
     @FXML
     private TextField txtFieldPuerto;
+    /**
+     * Etiqueta del campo usuario.
+     */
     @FXML
     private Label lblUsuario;
+    /**
+     * Campo para el nombre de usuario.
+     */
     @FXML
     private TextField txtFieldUsuario;
+    /**
+     * Botón para conectar con el servidor.
+     */
     @FXML
     private Button btnConectar;
+    /**
+     * Botón para desconectar del servidor.
+     */
     @FXML
     private Button btnDesconectar;
+    /**
+     * Etiqueta que muestra el estado de la conexión.
+     */
     @FXML
     private Label mensajeConectado;
+    /**
+     * Barra inferior con los controles de envío.
+     */
     @FXML
     private HBox hBoxButton;
+    /**
+     * Casilla para enviar el mensaje como privado.
+     */
     @FXML
     private CheckBox chckBoxPrivado;
+    /**
+     * Etiqueta del campo destinatario.
+     */
     @FXML
     private Label lblPara;
+    /**
+     * Campo para el destinatario de un mensaje privado.
+     */
     @FXML
     private TextField txtFieldDestinatario;
+    /**
+     * Campo para escribir el mensaje.
+     */
     @FXML
     private TextField txtFieldMensaje;
+    /**
+     * Botón para enviar el mensaje.
+     */
     @FXML
     private Button btnEnviar;
+    /**
+     * Contenedor donde se muestran los mensajes del chat.
+     */
     @FXML
     private VBox contenedorMensajes;
 
@@ -67,6 +118,13 @@ public class VentanaPrincipalController implements ClienteListener {
      * Cliente que gestiona la conexión con el servidor.
      */
     private Cliente cliente;
+
+    /**
+     * Crea el controlador. Lo instancia {@code FXMLLoader} al cargar la
+     * ventana; la inicialización se hace en {@link #initialize()}.
+     */
+    public VentanaPrincipalController() {
+    }
 
     /**
      * Lo llama JavaFX al cargar el FXML. Crea el cliente, se registra como

@@ -14,6 +14,10 @@ import java.io.Serializable;
  */
 public class Mensaje implements Serializable {
 
+    /**
+     * Versión de la clase para la serialización; cliente y servidor deben
+     * usar la misma.
+     */
     private static final long serialVersionUID = 1L;
 
     /**
@@ -88,6 +92,8 @@ public class Mensaje implements Serializable {
     }
 
     /**
+     * Devuelve el tipo de mensaje.
+     *
      * @return tipo de mensaje
      */
     public Tipo getTipo() {
@@ -95,6 +101,8 @@ public class Mensaje implements Serializable {
     }
 
     /**
+     * Devuelve el nombre del emisor.
+     *
      * @return nombre del usuario que envía el mensaje
      */
     public String getEmisor() {
@@ -102,6 +110,8 @@ public class Mensaje implements Serializable {
     }
 
     /**
+     * Devuelve el nombre del destinatario.
+     *
      * @return nombre del destinatario, o {@code null} si no es privado
      */
     public String getDestinatario() {
@@ -109,6 +119,8 @@ public class Mensaje implements Serializable {
     }
 
     /**
+     * Devuelve el texto del mensaje.
+     *
      * @return contenido del mensaje
      */
     public String getTexto() {

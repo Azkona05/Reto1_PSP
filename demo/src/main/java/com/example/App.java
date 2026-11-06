@@ -23,6 +23,13 @@ import javafx.stage.WindowEvent;
 public class App extends Application {
 
     /**
+     * Crea la aplicación. JavaFX la instancia automáticamente al llamar a
+     * {@link #launch(String...)}.
+     */
+    public App() {
+    }
+
+    /**
      * Carga la interfaz, registra el cierre de la conexión al cerrar la ventana
      * y la muestra.
      *
