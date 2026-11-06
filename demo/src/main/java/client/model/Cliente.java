@@ -8,6 +8,7 @@ import java.net.Socket;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ThreadFactory;
 
 import server.model.Mensaje;
 
@@ -54,7 +55,8 @@ public class Cliente {
      */
     private boolean conectado = false;
     /**
-     * Indica que la conexión está en curso, antes de la aceptación del servidor.
+     * Indica que la conexión está en curso, antes de la aceptación del
+     * servidor.
      */
     private boolean conectando = false;
     /**
@@ -66,6 +68,13 @@ public class Cliente {
      * conexión.
      */
     private ClienteListener listener;
+
+    /**
+     * Crea un cliente desconectado. Para conectarlo hay que llamar a
+     * {@link #conectar(String, int, String)}.
+     */
+    public Cliente() {
+    }
 
     /**
      * Establece el objeto que será avisado cuando llegue un mensaje o se pierda
@@ -153,12 +162,20 @@ public class Cliente {
             }
             out = nuevoOut;
             in = nuevoIn;
-            hiloEscritura = Executors.newSingleThreadExecutor(r -> {
-                Thread hilo = new Thread(r, "hilo-escritura-cliente");
-                hilo.setDaemon(true);
-                return hilo;
+            hiloEscritura = Executors.newSingleThreadExecutor(new ThreadFactory() {
+                @Override
+                public Thread newThread(Runnable r) {
+                    Thread hilo = new Thread(r, "hilo-escritura-cliente");
+                    hilo.setDaemon(true);
+                    return hilo;
+                }
             });
-            hiloEscritura.execute(() -> escribir(new Mensaje(Mensaje.Tipo.LOGIN, usuario, null, null)));
+            hiloEscritura.execute(new Runnable() {
+                @Override
+                public void run() {
+                    escribir(new Mensaje(Mensaje.Tipo.LOGIN, usuario, null, null));
+                }
+            });
         }
         return nuevoIn;
     }
@@ -218,7 +235,12 @@ public class Cliente {
                 return;
             }
             try {
-                hiloEscritura.execute(() -> escribir(m));
+                hiloEscritura.execute(new Runnable() {
+                    @Override
+                    public void run() {
+                        escribir(m);
+                    }
+                });
             } catch (RejectedExecutionException e) {
                 cerrarRecursos();
             }
@@ -263,9 +285,12 @@ public class Cliente {
             conectado = false;
             ExecutorService escritor = hiloEscritura;
             try {
-                escritor.execute(() -> {
-                    escribir(new Mensaje(Mensaje.Tipo.SALIR, usuario, null, null));
-                    cerrarRecursos();
+                escritor.execute(new Runnable() {
+                    @Override
+                    public void run() {
+                        escribir(new Mensaje(Mensaje.Tipo.SALIR, usuario, null, null));
+                        cerrarRecursos();
+                    }
                 });
                 escritor.shutdown();
             } catch (RejectedExecutionException e) {
@@ -297,6 +322,12 @@ public class Cliente {
         }
     }
 
+    /**
+     * Indica si hay una conexión en curso que el servidor aún no ha
+     * confirmado.
+     *
+     * @return {@code true} si se está conectando
+     */
     private synchronized boolean isConectando() {
         return conectando;
     }

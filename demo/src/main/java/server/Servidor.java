@@ -34,24 +34,71 @@ import server.model.Mensaje;
 public class Servidor {
 
     // ---------- Configuración ----------
+    /**
+     * Puerto TCP en el que escucha el servidor.
+     */
     private static final int PUERTO = 5005;
+    /**
+     * Número máximo de clientes conectados a la vez.
+     */
     private static final int MAX_USERS = 5;
+    /**
+     * Segundos entre cada informe del hilo de estado.
+     */
     private static final int INTERVALO_ESTADO_SEG = 10;
+    /**
+     * Nombre del archivo donde se guarda el log del servidor.
+     */
     private static final String ARCHIVO_LOG = "servidor.log";
 
     // ---------- Estado compartido: tiene que ser static (no variables locales del main)
     //            para que lo vean todos los hilos. Siempre se toca dentro de synchronized (LOCK).
+    /**
+     * Cerrojo que protege todo el estado compartido (usuarios, historial,
+     * contadores).
+     */
     private static final Object LOCK = new Object();
+    /**
+     * Usuarios identificados, indexados por su nombre.
+     */
     private static final Map<String, ManejadorCliente> usuarios = new HashMap<>();
+    /**
+     * Historial de mensajes públicos y privados enviados.
+     */
     private static final List<Mensaje> historial = new ArrayList<>();
-    private static int conexionesActivas = 0;          // incluye a quienes aún no han puesto nombre
+    /**
+     * Conexiones con plaza reservada, incluidas las que aún no se han
+     * identificado.
+     */
+    private static int conexionesActivas = 0;
+    /**
+     * Último mensaje enviado, en formato {@code emisor: texto}, para el informe
+     * de estado.
+     */
     private static String ultimoMensaje = "(ninguno)";
 
     // ---------- Log global ----------
+    /**
+     * Cerrojo que protege la escritura en consola y en el archivo de log.
+     */
     private static final Object LOCK_LOG = new Object();
+    /**
+     * Escritor del archivo de log, o {@code null} si no se pudo abrir.
+     */
     private static PrintWriter logArchivo;
 
+    /**
+     * Instante de arranque del servidor en milisegundos, para calcular el
+     * tiempo activo.
+     */
     private static final long INICIO = System.currentTimeMillis();
+
+    /**
+     * Constructor privado: la clase solo tiene miembros estáticos y no se
+     * instancia.
+     */
+    private Servidor() {
+    }
 
     /**
      * Arranca el servidor: abre el log, inicia el hilo de estado y acepta
@@ -198,6 +245,8 @@ public class Servidor {
     }
 
     /**
+     * Construye un texto con la lista de usuarios conectados.
+     *
      * @return texto con el número y los nombres de los usuarios conectados
      */
     private static String listaUsuarios() {
