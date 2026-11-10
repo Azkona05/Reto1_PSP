@@ -2,6 +2,7 @@ package com.example.server;
 
 import java.io.IOException;
 import java.io.ObjectInputStream;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -27,6 +28,8 @@ public class GestorChat {
     private final List<Mensaje> historial = new ArrayList<>();
     /** Texto del mensaje más reciente, usado en el informe de estado. */
     private String ultimoMensaje = "(ninguno)";
+    /** Instante de recepción del mensaje más reciente. */
+    private LocalDateTime timestampUltimoMensaje;
 
     /** Crea un gestor con estado independiente para un servidor. */
     public GestorChat() {
@@ -139,11 +142,11 @@ public class GestorChat {
     /**
      * Obtiene una instantánea coherente de las estadísticas del procesador.
      *
-     * @return número de usuarios, mensajes procesados y último mensaje
+     * @return número de usuarios, mensajes procesados, último mensaje y su timestamp
      */
     Estado obtenerEstado() {
         synchronized (lock) {
-            return new Estado(usuarios.size(), historial.size(), ultimoMensaje);
+            return new Estado(usuarios.size(), historial.size(), ultimoMensaje, timestampUltimoMensaje);
         }
     }
 
@@ -208,6 +211,7 @@ public class GestorChat {
         synchronized (lock) {
             historial.add(mensaje);
             ultimoMensaje = mensaje.getEmisor() + ": " + mensaje.getTexto();
+            timestampUltimoMensaje = LocalDateTime.now();
         }
     }
 
@@ -254,6 +258,8 @@ public class GestorChat {
         final int totalMensajes;
         /** Emisor y texto del mensaje más reciente. */
         final String ultimoMensaje;
+        /** Instante de recepción del mensaje más reciente, o {@code null} si no hay mensajes. */
+        final LocalDateTime timestampUltimoMensaje;
 
         /**
          * Crea una instantánea de estado.
@@ -261,11 +267,13 @@ public class GestorChat {
          * @param conectados número de usuarios conectados
          * @param totalMensajes número de mensajes del historial
          * @param ultimoMensaje descripción del último mensaje
+         * @param timestampUltimoMensaje instante del último mensaje, o {@code null} si no hay mensajes
          */
-        Estado(int conectados, int totalMensajes, String ultimoMensaje) {
+        Estado(int conectados, int totalMensajes, String ultimoMensaje, LocalDateTime timestampUltimoMensaje) {
             this.conectados = conectados;
             this.totalMensajes = totalMensajes;
             this.ultimoMensaje = ultimoMensaje;
+            this.timestampUltimoMensaje = timestampUltimoMensaje;
         }
     }
 }

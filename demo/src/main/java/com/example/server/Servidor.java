@@ -9,6 +9,7 @@ import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.text.SimpleDateFormat;
+import java.time.format.DateTimeFormatter;
 import java.util.Date;
 
 import com.example.common.Mensaje;
@@ -28,6 +29,8 @@ public class Servidor {
     private static final int MAX_USERS = 5;
     /** Intervalo, en segundos, entre informes de estado. */
     private static final int INTERVALO_ESTADO_SEG = 10;
+    /** Formato del timestamp mostrado para el último mensaje recibido. */
+    private static final DateTimeFormatter FORMATO_TIMESTAMP = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     /** Nombre del archivo de registro del servidor. */
     private static final String ARCHIVO_LOG = "servidor.log";
     /** Cerrojo que protege el contador de conexiones activas. */
@@ -61,10 +64,13 @@ public class Servidor {
             System.err.println("No se pudo abrir el log: " + e.getMessage());
         }
 
-        iniciarHiloEstado();
-        log("SERVIDOR", "Escuchando por el puerto " + PUERTO + " (máx. " + MAX_USERS + " usuarios)");
-
         try (ServerSocket serverSocket = new ServerSocket(PUERTO)) {
+            String mensajeInicio = "Escuchando por el puerto " + PUERTO + " (máx. " + MAX_USERS + " usuarios)";
+            log("SERVIDOR", mensajeInicio);
+            System.out.println("[" + new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date())
+                    + "] [SERVIDOR] " + mensajeInicio);
+            iniciarHiloEstado();
+
             while (true) {
                 Socket socketCliente = serverSocket.accept();
                 if (!reservarPlaza()) {
@@ -123,8 +129,7 @@ public class Servidor {
     }
 
     /**
-     * Escribe un evento con fecha en la consola y, si está disponible, en el
-     * archivo de log.
+     * Escribe un evento con fecha en el archivo de log, si está disponible.
      *
      * @param tipo categoría del evento
      * @param texto descripción del evento
@@ -133,7 +138,6 @@ public class Servidor {
         String hora = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date());
         String linea = "[" + hora + "] [" + tipo + "] " + texto;
         synchronized (LOCK_LOG) {
-            System.out.println(linea);
             if (logArchivo != null) {
                 logArchivo.println(linea);
             }
@@ -151,12 +155,16 @@ public class Servidor {
                 }
                 GestorChat.Estado datos = GESTOR_CHAT.obtenerEstado();
                 long seg = (System.currentTimeMillis() - INICIO) / 1000;
+                String timestamp = datos.timestampUltimoMensaje == null
+                        ? "(ninguno)"
+                        : datos.timestampUltimoMensaje.format(FORMATO_TIMESTAMP);
                 System.out.println("----- ESTADO -----\n"
                         + "Usuarios conectados: " + datos.conectados + "/" + MAX_USERS + "\n"
                         + "Tiempo activo:       "
                         + String.format("%02d:%02d:%02d", seg / 3600, (seg % 3600) / 60, seg % 60) + "\n"
                         + "Mensajes totales:    " + datos.totalMensajes + "\n"
                         + "Último mensaje:      " + datos.ultimoMensaje + "\n"
+                        + "Recibido:            " + timestamp + "\n"
                         + "------------------");
             }
         });
