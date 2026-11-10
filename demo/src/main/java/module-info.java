@@ -7,7 +7,7 @@
 module com.example {
     requires javafx.controls;
     requires javafx.fxml;
-    requires javafx.graphics;
+    requires transitive javafx.graphics;
     opens com.example.client.controller to javafx.fxml;
     exports com.example.client;
 }

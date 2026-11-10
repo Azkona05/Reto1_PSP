@@ -38,7 +38,7 @@ public class ChatApplication extends Application {
      */
     @Override
     public void start(Stage stage) throws IOException {
-        FXMLLoader fxmlLoader = new FXMLLoader(ChatApplication.class.getResource("ventana-principal.fxml"));
+        FXMLLoader fxmlLoader = new FXMLLoader(ChatApplication.class.getResource("/com/example/VentanaPrincipal.fxml"));
         Parent root = fxmlLoader.load();
 
         // Necesitamos el controller para cerrar la conexión al salir
