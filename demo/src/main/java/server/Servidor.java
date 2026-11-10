@@ -79,7 +79,6 @@ public class Servidor {
                 }
                 new Thread(new ManejadorCliente(socketCliente)).start(); // un hilo por cliente
                 
-                //cerrar(socketCliente);
             }
         } catch (IOException e) {
             log("ERROR", "Fallo en el servidor: " + e.getMessage());
