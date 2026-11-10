@@ -9,7 +9,7 @@ import java.io.Serializable;
  * {@code ObjectOutputStream} / {@code ObjectInputStream}. Es inmutable: sus
  * campos no cambian una vez creado.
  *
- * @author Hodei Torres
+ * @author Hodei
  * @version 1.0
  */
 public class Mensaje implements Serializable {

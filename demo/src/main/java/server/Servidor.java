@@ -9,102 +9,50 @@ import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 
 import server.model.Mensaje;
 
 /**
- * Servidor del chat multihilo.
- * <p>
- * Acepta conexiones en un bucle y crea un hilo ({@link ManejadorCliente}) por
- * cada cliente. Limita el número de usuarios simultáneos, reenvía mensajes
- * públicos y privados, guarda un historial y escribe un log en archivo. Además,
- * un hilo de estado muestra estadísticas periódicamente.
- * <p>
- * Todo el estado compartido es {@code static} y se protege con
- * {@code synchronized (LOCK)}.
+ * Arranca el servidor, acepta conexiones y gestiona los hilos de los clientes.
+ * El procesamiento de usuarios y mensajes se delega en {@link Procesador}.
  *
- * @author Hodei Torres
+ * @author Hodei
  * @version 1.0
  */
 public class Servidor {
 
-    // ---------- Configuración ----------
-    /**
-     * Puerto TCP en el que escucha el servidor.
-     */
+    /** Puerto TCP en el que escucha el servidor. */
     private static final int PUERTO = 5005;
-    /**
-     * Número máximo de clientes conectados a la vez.
-     */
+    /** Número máximo de conexiones simultáneas, incluidas las no identificadas. */
     private static final int MAX_USERS = 5;
-    /**
-     * Segundos entre cada informe del hilo de estado.
-     */
+    /** Intervalo, en segundos, entre informes de estado. */
     private static final int INTERVALO_ESTADO_SEG = 10;
-    /**
-     * Nombre del archivo donde se guarda el log del servidor.
-     */
+    /** Nombre del archivo de registro del servidor. */
     private static final String ARCHIVO_LOG = "servidor.log";
-
-    // ---------- Estado compartido: tiene que ser static (no variables locales del main)
-    //            para que lo vean todos los hilos. Siempre se toca dentro de synchronized (LOCK).
-    /**
-     * Cerrojo que protege todo el estado compartido (usuarios, historial,
-     * contadores).
-     */
+    /** Cerrojo que protege el contador de conexiones activas. */
     private static final Object LOCK = new Object();
-    /**
-     * Usuarios identificados, indexados por su nombre.
-     */
-    private static final Map<String, ManejadorCliente> usuarios = new HashMap<>();
-    /**
-     * Historial de mensajes públicos y privados enviados.
-     */
-    private static final List<Mensaje> historial = new ArrayList<>();
-    /**
-     * Conexiones con plaza reservada, incluidas las que aún no se han
-     * identificado.
-     */
-    private static int conexionesActivas = 0;
-    /**
-     * Último mensaje enviado, en formato {@code emisor: texto}, para el informe
-     * de estado.
-     */
-    private static String ultimoMensaje = "(ninguno)";
-
-    // ---------- Log global ----------
-    /**
-     * Cerrojo que protege la escritura en consola y en el archivo de log.
-     */
+    /** Cerrojo que evita escrituras simultáneas en consola y archivo de log. */
     private static final Object LOCK_LOG = new Object();
-    /**
-     * Escritor del archivo de log, o {@code null} si no se pudo abrir.
-     */
+    /** Procesador compartido por los hilos de conexión. */
+    private static final Procesador PROCESADOR = new Procesador();
+    /** Instante de inicio del servidor, expresado en milisegundos. */
+    private static final long INICIO = System.currentTimeMillis();
+    /** Número de conexiones que tienen reservada una plaza. */
+    private static int conexionesActivas;
+    /** Escritor del archivo de log, si se pudo abrir. */
     private static PrintWriter logArchivo;
 
-    /**
-     * Instante de arranque del servidor en milisegundos, para calcular el
-     * tiempo activo.
-     */
-    private static final long INICIO = System.currentTimeMillis();
-
-    /**
-     * Constructor privado: la clase solo tiene miembros estáticos y no se
-     * instancia.
-     */
+    /** Evita crear instancias de esta clase, que solo contiene miembros estáticos. */
     private Servidor() {
     }
 
     /**
-     * Arranca el servidor: abre el log, inicia el hilo de estado y acepta
-     * clientes indefinidamente, creando un hilo para cada uno.
+     * Inicializa el registro, inicia el hilo de estado y comienza a aceptar
+     * conexiones de clientes. Se crea un hilo independiente para cada conexión
+     * que obtiene una plaza.
      *
-     * @param args argumentos de la línea de comandos (no se usan)
+     * @param args argumentos de línea de comandos (no se utilizan)
      */
     public static void main(String[] args) {
         try {
@@ -117,15 +65,13 @@ public class Servidor {
         log("SERVIDOR", "Escuchando por el puerto " + PUERTO + " (máx. " + MAX_USERS + " usuarios)");
 
         try (ServerSocket serverSocket = new ServerSocket(PUERTO)) {
-            while (true) {                                    // <- accept() DENTRO de un bucle
+            while (true) {
                 Socket socketCliente = serverSocket.accept();
-
                 if (!reservarPlaza()) {
                     rechazar(socketCliente);
                     continue;
                 }
-                new Thread(new ManejadorCliente(socketCliente)).start(); // un hilo por cliente
-                
+                new Thread(new ManejadorCliente(socketCliente)).start();
             }
         } catch (IOException e) {
             log("ERROR", "Fallo en el servidor: " + e.getMessage());
@@ -135,23 +81,11 @@ public class Servidor {
     }
 
     /**
-     * Cierra el archivo de log al terminar el bucle principal del servidor.
-     */
-    private static void cerrarLog() {
-        synchronized (LOCK_LOG) {
-            if (logArchivo != null) {
-                logArchivo.close();
-                logArchivo = null;
-            }
-        }
-    }
-
-    //  LÍMITE DE CLIENTES
-    /**
-     * Intenta reservar una plaza para un nuevo cliente.
+     * Reserva una plaza para una conexión nueva si no se ha alcanzado el
+     * máximo permitido.
      *
-     * @return {@code true} si había plaza, {@code false} si el servidor está
-     * lleno
+     * @return {@code true} si se reservó la plaza; {@code false} si el servidor
+     *         está lleno
      */
     private static boolean reservarPlaza() {
         synchronized (LOCK) {
@@ -163,9 +97,7 @@ public class Servidor {
         }
     }
 
-    /**
-     * Libera la plaza de un cliente que se ha desconectado.
-     */
+    /** Libera la plaza reservada por un cliente al terminar su hilo. */
     private static void liberarPlaza() {
         synchronized (LOCK) {
             conexionesActivas--;
@@ -173,15 +105,16 @@ public class Servidor {
     }
 
     /**
-     * Avisa a un cliente de que el servidor está lleno y cierra su conexión.
+     * Envía al socket un error de servidor lleno y después lo cierra.
      *
-     * @param socket socket del cliente rechazado
+     * @param socket socket de la conexión rechazada
      */
     private static void rechazar(Socket socket) {
         log("RECHAZADO", "Conexión desde " + socket.getInetAddress() + " (servidor lleno)");
         try {
             ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream());
-            out.writeObject(new Mensaje(Mensaje.Tipo.LOGIN_ERROR, "SERVIDOR", null, "Servidor lleno. Inténtalo más tarde."));
+            out.writeObject(new Mensaje(Mensaje.Tipo.LOGIN_ERROR, "SERVIDOR", null,
+                    "Servidor lleno. Inténtalo más tarde."));
             out.flush();
         } catch (IOException ignorada) {
         } finally {
@@ -189,116 +122,14 @@ public class Servidor {
         }
     }
 
-    //  USUARIOS Y MENSAJES
     /**
-     * Registra un usuario con su nombre si no está ya en uso.
+     * Escribe un evento con fecha en la consola y, si está disponible, en el
+     * archivo de log.
      *
-     * @param nombre nombre del usuario
-     * @param cliente manejador asociado a ese usuario
-     * @return {@code true} si se registró, {@code false} si el nombre ya
-     * existía
-     */
-    private static boolean registrar(String nombre, ManejadorCliente cliente) {
-        synchronized (LOCK) {
-            if (usuarios.containsKey(nombre)) {
-                return false;
-            }
-            usuarios.put(nombre, cliente);
-            return true;
-        }
-    }
-
-    /**
-     * Elimina un usuario de la lista de conectados.
-     *
-     * @param nombre nombre del usuario
-     */
-    private static void eliminar(String nombre) {
-        synchronized (LOCK) {
-            usuarios.remove(nombre);
-        }
-    }
-
-    /**
-     * Busca el manejador de un usuario conectado.
-     *
-     * @param nombre nombre del usuario
-     * @return su manejador, o {@code null} si no está conectado
-     */
-    private static ManejadorCliente buscar(String nombre) {
-        synchronized (LOCK) {
-            return usuarios.get(nombre);
-        }
-    }
-
-    /**
-     * Devuelve una copia de la lista de clientes para poder recorrerla fuera
-     * del bloqueo.
-     *
-     * @return copia de los manejadores conectados
-     */
-    private static List<ManejadorCliente> copiaClientes() {
-        synchronized (LOCK) {
-            return new ArrayList<>(usuarios.values());
-        }
-    }
-
-    /**
-     * Construye un texto con la lista de usuarios conectados.
-     *
-     * @return texto con el número y los nombres de los usuarios conectados
-     */
-    private static String listaUsuarios() {
-        synchronized (LOCK) {
-            return "Conectados (" + usuarios.size() + "): " + String.join(", ", usuarios.keySet());
-        }
-    }
-
-    /**
-     * Guarda un mensaje en el historial y lo marca como último mensaje.
-     *
-     * @param m mensaje a guardar
-     */
-    private static void guardarMensaje(Mensaje m) {
-        synchronized (LOCK) {
-            historial.add(m);
-            ultimoMensaje = m.getEmisor() + ": " + m.getTexto();
-        }
-    }
-
-    /**
-     * Envía un mensaje a todos los clientes excepto a uno. Se envía fuera del
-     * lock, sobre una copia, para que un cliente lento no bloquee a los demás.
-     *
-     * @param m mensaje a difundir
-     * @param excluir cliente que no debe recibirlo (normalmente el emisor)
-     */
-    private static void difundir(Mensaje m, ManejadorCliente excluir) {
-        for (ManejadorCliente c : copiaClientes()) {
-            if (c != excluir) {
-                c.enviar(m);
-            }
-        }
-    }
-
-    /**
-     * Crea un mensaje de tipo SISTEMA enviado por el servidor.
-     *
-     * @param texto contenido del aviso
-     * @return mensaje de sistema
-     */
-    private static Mensaje sistema(String texto) {
-        return new Mensaje(Mensaje.Tipo.SISTEMA, "SERVIDOR", null, texto);
-    }
-
-    //  LOG Y ESTADO
-    /**
-     * Escribe una línea con fecha y tipo en la consola y en el archivo de log.
-     *
-     * @param tipo categoría del evento (ENTRADA, SALIDA, ERROR...)
+     * @param tipo categoría del evento
      * @param texto descripción del evento
      */
-    private static void log(String tipo, String texto) {
+    static void log(String tipo, String texto) {
         String hora = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date());
         String linea = "[" + hora + "] [" + tipo + "] " + texto;
         synchronized (LOCK_LOG) {
@@ -309,10 +140,7 @@ public class Servidor {
         }
     }
 
-    /**
-     * Arranca un hilo daemon que cada cierto tiempo muestra los usuarios
-     * conectados, el tiempo activo, el total de mensajes y el último mensaje.
-     */
+    /** Inicia el hilo daemon que muestra periódicamente las estadísticas. */
     private static void iniciarHiloEstado() {
         Thread estado = new Thread(() -> {
             while (true) {
@@ -321,30 +149,35 @@ public class Servidor {
                 } catch (InterruptedException e) {
                     return;
                 }
-                int conectados, total;
-                String ultimo;
-                synchronized (LOCK) {
-                    conectados = usuarios.size();
-                    total = historial.size();
-                    ultimo = ultimoMensaje;
-                }
+                Procesador.Estado datos = PROCESADOR.obtenerEstado();
                 long seg = (System.currentTimeMillis() - INICIO) / 1000;
-                System.out.println("----- ESTADO -----");
-                System.out.println("Usuarios conectados: " + conectados + "/" + MAX_USERS);
-                System.out.println("Tiempo activo:       " + String.format("%02d:%02d:%02d", seg / 3600, (seg % 3600) / 60, seg % 60));
-                System.out.println("Mensajes totales:    " + total);
-                System.out.println("Último mensaje:      " + ultimo);
-                System.out.println("------------------");
+                System.out.println("----- ESTADO -----\n"
+                        + "Usuarios conectados: " + datos.conectados + "/" + MAX_USERS + "\n"
+                        + "Tiempo activo:       "
+                        + String.format("%02d:%02d:%02d", seg / 3600, (seg % 3600) / 60, seg % 60) + "\n"
+                        + "Mensajes totales:    " + datos.totalMensajes + "\n"
+                        + "Último mensaje:      " + datos.ultimoMensaje + "\n"
+                        + "------------------");
             }
         });
         estado.setDaemon(true);
         estado.start();
     }
 
+    /** Cierra el archivo de log si se había abierto. */
+    private static void cerrarLog() {
+        synchronized (LOCK_LOG) {
+            if (logArchivo != null) {
+                logArchivo.close();
+                logArchivo = null;
+            }
+        }
+    }
+
     /**
-     * Cierra un socket ignorando posibles errores.
+     * Cierra un socket.
      *
-     * @param socket socket a cerrar
+     * @param socket socket que se va a cerrar
      */
     private static void cerrar(Socket socket) {
         try {
@@ -353,174 +186,108 @@ public class Servidor {
         }
     }
 
-    //  HILO DE CADA CLIENTE
     /**
-     * Hilo que atiende a un único cliente: lo identifica, recibe sus mensajes y
-     * los procesa hasta que se desconecta.
+     * Atiende la conexión de un cliente: prepara los flujos, delega la
+     * identificación y el procesamiento de mensajes a {@link Procesador} y
+     * libera los recursos al terminar.
      */
-    private static class ManejadorCliente implements Runnable {
+    static class ManejadorCliente implements Runnable {
 
-        /**
-         * Socket del cliente.
-         */
+        /** Socket asociado a este cliente. */
         private final Socket socket;
-        /**
-         * Flujo para enviar mensajes al cliente.
-         */
+        /** Flujo de salida usado para enviar objetos al cliente. */
         private ObjectOutputStream out;
-        /**
-         * Flujo para recibir mensajes del cliente.
-         */
+        /** Flujo de entrada usado para recibir objetos del cliente. */
         private ObjectInputStream in;
-        /**
-         * Nombre del usuario, o {@code null} hasta que se identifica.
-         */
-        private String nombre = null;
+        /** Nombre del cliente, o {@code null} antes de identificarse. */
+        private String nombre;
 
         /**
-         * Crea el manejador para un cliente.
+         * Crea el manejador para un socket aceptado por el servidor.
          *
-         * @param socket socket del cliente
+         * @param socket conexión del cliente
          */
         ManejadorCliente(Socket socket) {
             this.socket = socket;
         }
 
         /**
-         * Envía un mensaje a este cliente. ObjectOutputStream no es
-         * thread-safe: varios hilos le escriben, así que se sincroniza.
+         * Envía un mensaje al cliente. El método es sincronizado porque el
+         * flujo puede ser utilizado por varios hilos.
          *
-         * @param m mensaje a enviar
+         * @param mensaje mensaje que se enviará
          */
-        synchronized void enviar(Mensaje m) {
+        synchronized void enviar(Mensaje mensaje) {
             if (out == null) {
                 return;
             }
             try {
-                out.writeObject(m);
+                out.writeObject(mensaje);
                 out.flush();
-                out.reset();      // evita que el stream acumule referencias y consuma memoria
+                out.reset();
             } catch (IOException e) {
                 log("ERROR", "Fallo al enviar a " + nombre + ": " + e.getMessage());
-                cerrar(socket);   // el hilo del cliente saldrá de readObject y hará la limpieza
-            }
-        }
-
-        /**
-         * Crea los flujos, identifica al usuario y procesa sus mensajes hasta
-         * que se desconecta. Al terminar, lo elimina y libera su plaza.
-         */
-        @Override
-        public void run() {
-            try {
-                // Orden importante: primero el Output (con flush) y luego el Input.
-                // El cliente debe hacer lo mismo o ambos se quedarán esperando la cabecera del otro.
-                out = new ObjectOutputStream(socket.getOutputStream());
-                out.flush();
-                in = new ObjectInputStream(socket.getInputStream());
-
-                if (!identificar()) {
-                    return;
-                }
-
-                log("ENTRADA", nombre + " se ha conectado desde " + socket.getInetAddress());
-                difundir(sistema(nombre + " se ha unido al chat"), this);
-                enviar(sistema("Bienvenido, " + nombre + ". " + listaUsuarios()));
-
-                boolean seguir = true;
-                while (seguir) {
-                    Mensaje m = (Mensaje) in.readObject();
-                    seguir = procesar(m);
-                }
-            } catch (EOFException e) {
-                // el cliente cerró la conexión sin enviar SALIR: es una desconexión normal
-            } catch (IOException | ClassNotFoundException | ClassCastException e) {
-                log("ERROR", "Comunicación con " + (nombre != null ? nombre : "cliente sin nombre")
-                        + " interrumpida: " + e.getMessage());
-            } finally {
-                if (nombre != null) {
-                    eliminar(nombre);
-                    log("SALIDA", nombre + " se ha desconectado");
-                    difundir(sistema(nombre + " ha salido del chat"), this);
-                }
-                liberarPlaza();
                 cerrar(socket);
             }
         }
 
         /**
-         * El primer mensaje del cliente debe ser un LOGIN con el nombre en
-         * 'emisor'. Si no es válido o ya está en uso, lo rechaza y cierra la
-         * conexión para liberar la plaza reservada.
+         * Establece el nombre tras completar correctamente el inicio de sesión.
          *
-         * @return {@code true} cuando el usuario queda registrado
-         * @throws IOException si falla la comunicación
-         * @throws ClassNotFoundException si llega un objeto desconocido
+         * @param nombre nombre identificado del cliente
          */
-        private boolean identificar() throws IOException, ClassNotFoundException {
-            Mensaje m = (Mensaje) in.readObject();
-            if (m.getTipo() != Mensaje.Tipo.LOGIN) {
-                enviar(new Mensaje(Mensaje.Tipo.LOGIN_ERROR, "SERVIDOR", null,
-                        "Debes identificarte primero (LOGIN)."));
-                return false;
-            }
-            String n = m.getEmisor() == null ? "" : m.getEmisor().trim();
-            if (n.isEmpty() || n.contains(" ")) {
-                enviar(new Mensaje(Mensaje.Tipo.LOGIN_ERROR, "SERVIDOR", null,
-                        "Nombre no válido (sin espacios). Prueba otro."));
-                return false;
-            }
-            if (!registrar(n, this)) {
-                enviar(new Mensaje(Mensaje.Tipo.LOGIN_ERROR, "SERVIDOR", null,
-                        "El nombre '" + n + "' ya está en uso. Prueba otro."));
-                log("RECHAZADO", "Nombre de usuario ya en uso: " + n);
-                return false;
-            }
-            nombre = n;
-            enviar(new Mensaje(Mensaje.Tipo.LOGIN_OK, "SERVIDOR", null, null));
-            return true;
+        void setNombre(String nombre) {
+            this.nombre = nombre;
         }
 
         /**
-         * Procesa un mensaje del cliente según su tipo. Devuelve false cuando
-         * el cliente quiere salir.
+         * Devuelve el nombre del cliente.
          *
-         * @param m mensaje recibido
-         * @return {@code false} si el cliente quiere salir, {@code true} en
-         * otro caso
+         * @return nombre identificado, o {@code null} si aún no se ha
+         *         identificado
          */
-        private boolean procesar(Mensaje m) {
-            switch (m.getTipo()) {
-                case PUBLICO:
-                    Mensaje publico = new Mensaje(Mensaje.Tipo.PUBLICO, nombre, null, m.getTexto());
-                    guardarMensaje(publico);
-                    log("PUBLICO", publico.toString());
-                    difundir(publico, this);
-                    return true;
+        String getNombre() {
+            return nombre;
+        }
 
-                case PRIVADO:
-                    ManejadorCliente receptor = buscar(m.getDestinatario());
-                    if (receptor == null) {
-                        enviar(sistema("El usuario '" + m.getDestinatario() + "' no está conectado."));
-                        return true;
-                    }
-                    Mensaje privado = new Mensaje(Mensaje.Tipo.PRIVADO, nombre, m.getDestinatario(), m.getTexto());
-                    guardarMensaje(privado);
-                    log("PRIVADO", nombre + " -> " + m.getDestinatario() + ": " + m.getTexto());
-                    receptor.enviar(privado);
-                    enviar(sistema("Mensaje privado enviado a " + m.getDestinatario()));
-                    return true;
+        /**
+         * Devuelve la dirección remota del socket.
+         *
+         * @return dirección IP del cliente
+         */
+        String getDireccion() {
+            return socket.getInetAddress().toString();
+        }
 
-                case LISTA:
-                    enviar(sistema(listaUsuarios()));
-                    return true;
+        /**
+         * Ejecuta el ciclo de comunicación del cliente y limpia la conexión
+         * cuando termina.
+         */
+        @Override
+        public void run() {
+            try {
+                out = new ObjectOutputStream(socket.getOutputStream());
+                out.flush();
+                in = new ObjectInputStream(socket.getInputStream());
 
-                case SALIR:
-                    return false;
+                if (!PROCESADOR.identificar(this, in)) {
+                    return;
+                }
 
-                default:
-                    enviar(sistema("Tipo de mensaje no válido."));
-                    return true;
+                boolean seguir = true;
+                while (seguir) {
+                    Mensaje mensaje = (Mensaje) in.readObject();
+                    seguir = PROCESADOR.procesar(this, mensaje);
+                }
+            } catch (EOFException e) {
+                // Desconexión normal si el cliente cierra el socket sin enviar SALIR.
+            } catch (IOException | ClassNotFoundException | ClassCastException e) {
+                log("ERROR", "Comunicación con " + (nombre != null ? nombre : "cliente sin nombre")
+                        + " interrumpida: " + e.getMessage());
+            } finally {
+                PROCESADOR.desconectar(this);
+                liberarPlaza();
+                cerrar(socket);
             }
         }
     }
