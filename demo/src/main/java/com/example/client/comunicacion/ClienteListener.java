@@ -1,12 +1,12 @@
-package client.model;
+package com.example.client.comunicacion;
 
-import server.model.Mensaje;
+import com.example.common.Mensaje;
 
 /**
  * Interfaz que permite al {@link Cliente} avisar de los eventos de la conexión
  * sin depender de una clase concreta (patrón Observer).
  * <p>
- * Los métodos se invocan desde {@link HiloLectura}, no desde el hilo de la
+ * Los métodos se invocan desde {@link LectorCliente}, no desde el hilo de la
  * interfaz gráfica. Si quien la implementa modifica componentes de JavaFX, debe
  * hacerlo mediante {@code Platform.runLater}.
  *
@@ -29,7 +29,7 @@ public interface ClienteListener {
     void conexionPerdida();
 
     /**
-     * Se invoca desde {@link HiloLectura} cuando la conexión se ha establecido
+     * Se invoca desde {@link LectorCliente} cuando la conexión se ha establecido
      * correctamente.
      *
      * @param usuario nombre con el que se ha conectado
@@ -37,7 +37,7 @@ public interface ClienteListener {
     void conexionEstablecida(String usuario);
 
     /**
-     * Se invoca desde {@link HiloLectura} cuando no se ha podido conectar.
+     * Se invoca desde {@link LectorCliente} cuando no se ha podido conectar.
      *
      * @param mensajeError descripción del error
      */

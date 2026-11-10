@@ -1,9 +1,9 @@
-package client.model;
+package com.example.client.comunicacion;
 
 import java.io.IOException;
 import java.io.ObjectInputStream;
 
-import server.model.Mensaje;
+import com.example.common.Mensaje;
 
 /**
  * Hilo del cliente que conecta con el servidor y después escucha continuamente
@@ -23,7 +23,7 @@ import server.model.Mensaje;
  * @author Azkona05, Hodei Torres, Joel Mamani
  * @version 1.0
  */
-public class HiloLectura extends Thread {
+public class LectorCliente extends Thread {
 
     /**
      * Cliente que gestiona la conexión y al que se notifican los eventos.
@@ -50,7 +50,7 @@ public class HiloLectura extends Thread {
      * @param puerto puerto del servidor
      * @param usuario nombre de usuario
      */
-    public HiloLectura(Cliente cliente, String host, int puerto, String usuario) {
+    public LectorCliente(Cliente cliente, String host, int puerto, String usuario) {
         super("hilo-lectura-cliente");
         this.cliente = cliente;
         this.host = host;
@@ -61,17 +61,17 @@ public class HiloLectura extends Thread {
     /**
      * Conecta con el servidor y, si lo consigue, lee mensajes hasta que se
      * cierra la conexión. Al terminar, siempre llama a
-     * {@link Cliente#lecturaTerminada()}.
+     * {@link Cliente#finalizarLectura()}.
      */
     @Override
     public void run() {
         // ---- Fase 1: conexión ----
         ObjectInputStream in;
         try {
-            in = cliente.abrirConexion(host, puerto, usuario);
+            in = cliente.establecerConexion(host, puerto, usuario);
         } catch (IOException e) {
             cliente.notificarErrorConexion(e.getMessage());
-            cliente.lecturaTerminada(); // cierra lo que se haya llegado a abrir
+            cliente.finalizarLectura(); // cierra lo que se haya llegado a abrir
             return;
         }
         try {
@@ -84,7 +84,7 @@ public class HiloLectura extends Thread {
                 cliente.notificarErrorConexion("Respuesta inesperada del servidor al identificarse.");
                 return;
             }
-            cliente.notificarConexion(usuario);
+            cliente.notificarConexionEstablecida(usuario);
 
             // ---- Fase 2: lectura ----
             while (true) {
@@ -96,7 +96,7 @@ public class HiloLectura extends Thread {
                 cliente.notificarErrorConexion(e.getMessage());
             }
         } finally {
-            cliente.lecturaTerminada();
+            cliente.finalizarLectura();
         }
     }
 }

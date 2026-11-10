@@ -35,7 +35,7 @@ mvn clean compile
 En la primera terminal, ejecuta:
 
 ```powershell
-java -cp target/classes server.Servidor
+java -cp target/classes com.example.sever.Servidor
 ```
 
 El servidor quedará a la escucha de conexiones en el puerto `5005`.
@@ -53,6 +53,27 @@ Se iniciará la interfaz gráfica JavaFX, desde la que podrás conectarte al ser
 > **Importante:** El servidor debe estar iniciado antes de ejecutar el cliente. Puedes iniciar varias instancias del cliente desde diferentes terminales para conectar distintos usuarios.
 
 ---
+
+## Estructura del proyecto
+
+El código fuente Java y los recursos de la aplicación están organizados por
+responsabilidad bajo el paquete raíz `com.example`:
+
+```text
+demo/
+└── src/main/
+    ├── java/
+    │   ├── module-info.java
+    │   └── com/example/
+    │       ├── client/
+    │       │   ├── ChatApplication.java
+    │       │   ├── controller/
+    │       │   └── comunicacion/   # Cliente, lector y escritor de mensajes
+    │       ├── common/              # Mensajes compartidos cliente-servidor
+    │       └── sever/               # Servidor y gestor de conexiones
+    └── resources/com/example/client/
+        └── ventana-principal.fxml
+```
 
 ## Configuración en Visual Studio Code
 

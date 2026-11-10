@@ -1,15 +1,13 @@
 /**
  * Chat cliente-servidor con sockets e hilos.
  * <p>
- * Contiene el cliente JavaFX ({@code com.example}, {@code client.controller},
- * {@code client.model}) y el servidor multihilo ({@code server},
- * {@code server.model}).
+ * Contiene el cliente JavaFX, el servidor multihilo y el protocolo compartido
+ * bajo el paquete raíz {@code com.example}.
  */
 module com.example {
     requires javafx.controls;
     requires javafx.fxml;
-    opens com.example to javafx.fxml;
     requires javafx.graphics;
-    opens client.controller to javafx.fxml;
-    exports com.example;
+    opens com.example.client.controller to javafx.fxml;
+    exports com.example.client;
 }

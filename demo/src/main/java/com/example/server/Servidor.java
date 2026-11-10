@@ -1,4 +1,4 @@
-package server;
+package com.example.server;
 
 import java.io.EOFException;
 import java.io.FileWriter;
@@ -11,11 +11,11 @@ import java.net.Socket;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
-import server.model.Mensaje;
+import com.example.common.Mensaje;
 
 /**
  * Arranca el servidor, acepta conexiones y gestiona los hilos de los clientes.
- * El procesamiento de usuarios y mensajes se delega en {@link Procesador}.
+ * El procesamiento de usuarios y mensajes se delega en {@link GestorChat}.
  *
  * @author Hodei
  * @version 1.0
@@ -34,8 +34,8 @@ public class Servidor {
     private static final Object LOCK = new Object();
     /** Cerrojo que evita escrituras simultáneas en consola y archivo de log. */
     private static final Object LOCK_LOG = new Object();
-    /** Procesador compartido por los hilos de conexión. */
-    private static final Procesador PROCESADOR = new Procesador();
+    /** Gestor compartido por los hilos de conexión. */
+    private static final GestorChat GESTOR_CHAT = new GestorChat();
     /** Instante de inicio del servidor, expresado en milisegundos. */
     private static final long INICIO = System.currentTimeMillis();
     /** Número de conexiones que tienen reservada una plaza. */
@@ -149,7 +149,7 @@ public class Servidor {
                 } catch (InterruptedException e) {
                     return;
                 }
-                Procesador.Estado datos = PROCESADOR.obtenerEstado();
+                GestorChat.Estado datos = GESTOR_CHAT.obtenerEstado();
                 long seg = (System.currentTimeMillis() - INICIO) / 1000;
                 System.out.println("----- ESTADO -----\n"
                         + "Usuarios conectados: " + datos.conectados + "/" + MAX_USERS + "\n"
@@ -188,7 +188,7 @@ public class Servidor {
 
     /**
      * Atiende la conexión de un cliente: prepara los flujos, delega la
-     * identificación y el procesamiento de mensajes a {@link Procesador} y
+     * identificación y el procesamiento de mensajes a {@link GestorChat} y
      * libera los recursos al terminar.
      */
     static class ManejadorCliente implements Runnable {
@@ -270,14 +270,14 @@ public class Servidor {
                 out.flush();
                 in = new ObjectInputStream(socket.getInputStream());
 
-                if (!PROCESADOR.identificar(this, in)) {
+                if (!GESTOR_CHAT.identificar(this, in)) {
                     return;
                 }
 
                 boolean seguir = true;
                 while (seguir) {
                     Mensaje mensaje = (Mensaje) in.readObject();
-                    seguir = PROCESADOR.procesar(this, mensaje);
+                    seguir = GESTOR_CHAT.procesar(this, mensaje);
                 }
             } catch (EOFException e) {
                 // Desconexión normal si el cliente cierra el socket sin enviar SALIR.
@@ -285,7 +285,7 @@ public class Servidor {
                 log("ERROR", "Comunicación con " + (nombre != null ? nombre : "cliente sin nombre")
                         + " interrumpida: " + e.getMessage());
             } finally {
-                PROCESADOR.desconectar(this);
+                GESTOR_CHAT.desconectar(this);
                 liberarPlaza();
                 cerrar(socket);
             }

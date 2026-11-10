@@ -1,6 +1,8 @@
-package client.controller;
+package com.example.client.controller;
 
-import client.model.*;
+import com.example.client.comunicacion.*;
+import com.example.common.Mensaje;
+
 import javafx.application.Platform;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
@@ -10,7 +12,6 @@ import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
-import server.model.Mensaje;
 
 /**
  * Controlador de la ventana principal del chat.
@@ -137,7 +138,7 @@ public class VentanaPrincipalController implements ClienteListener {
         estadoDesconectado();
     }
 
-    // ---------- Callbacks de ClienteListener (se ejecutan en HiloLectura) ----------
+    // ---------- Callbacks de ClienteListener (se ejecutan en LectorCliente) ----------
     /**
      * Muestra en pantalla un mensaje recibido del servidor.
      *
@@ -227,7 +228,7 @@ public class VentanaPrincipalController implements ClienteListener {
         }
 
         btnConectar.setDisable(true);
-        // No bloquea: conecta en HiloLectura y el resultado llega por
+        // No bloquea: conecta en LectorCliente y el resultado llega por
         // conexionEstablecida() o errorConexion()
         cliente.conectar(ip, puerto, usuario);
     }
@@ -263,10 +264,10 @@ public class VentanaPrincipalController implements ClienteListener {
                 agregarMensaje("Indica un destinatario para el mensaje privado.");
                 return;
             }
-            cliente.enviarPrivado(dest, texto);
+            cliente.enviarMensajePrivado(dest, texto);
             agregarMensaje("[Privado para " + dest + "] " + texto);
         } else {
-            cliente.enviarPublico(texto);
+            cliente.enviarMensajePublico(texto);
             agregarMensaje("Yo: " + texto); // el servidor no te reenvía tus públicos
         }
         txtFieldMensaje.clear();

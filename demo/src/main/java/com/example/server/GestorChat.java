@@ -1,4 +1,4 @@
-package server;
+package com.example.server;
 
 import java.io.IOException;
 import java.io.ObjectInputStream;
@@ -7,7 +7,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import server.model.Mensaje;
+import com.example.common.Mensaje;
 
 /**
  * Gestiona los usuarios conectados y procesa los mensajes recibidos por el
@@ -16,7 +16,8 @@ import server.model.Mensaje;
  * @author Hodei
  * @version 1.0
  */
-public class Procesador {
+
+public class GestorChat {
 
     /** Cerrojo para proteger el estado compartido de usuarios e historial. */
     private final Object lock = new Object();
@@ -27,8 +28,8 @@ public class Procesador {
     /** Texto del mensaje más reciente, usado en el informe de estado. */
     private String ultimoMensaje = "(ninguno)";
 
-    /** Crea un procesador con estado independiente para un servidor. */
-    public Procesador() {
+    /** Crea un gestor con estado independiente para un servidor. */
+    public GestorChat() {
     }
 
     /**
