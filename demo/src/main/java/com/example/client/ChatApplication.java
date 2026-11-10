@@ -53,6 +53,7 @@ public class ChatApplication extends Application {
         Scene scene = new Scene(root, 800, 600);
         stage.setTitle("Chat");
         stage.setScene(scene);
+        stage.setMaximized(true);
         stage.show();
     }
 
